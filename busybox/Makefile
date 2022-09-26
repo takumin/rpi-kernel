@@ -88,8 +88,7 @@ install: build
 
 .PHONY: initrd.gz
 initrd.gz: install
-	@cd $(BUILD_DIR)/install && find . -print0 | cpio -0 -o -R root:root -H newc | gzip -2 -n > $(BUILD_DIR)/rootfs.cpio.gz
-	@advdef -z4 $(BUILD_DIR)/rootfs.cpio.gz
+	@cd $(BUILD_DIR)/install && find . -print0 | cpio -0 -o -R root:root -H newc | pigz -n > $(BUILD_DIR)/rootfs.cpio.gz
 
 .PHONY: initrd.xz
 initrd.xz: install
