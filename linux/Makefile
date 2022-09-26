@@ -47,9 +47,7 @@ ifeq ($(wildcard $(BUILD_DIR)/build/.config),)
 		CXX="ccache $(CROSS_COMPILE)g++" \
 		KBUILD_BUILD_TIMESTAMP='' \
 		bcm2711_defconfig
-	@sed -i -E 's@CONFIG_BLK_DEV_RAM_SIZE=.*@CONFIG_BLK_DEV_RAM_SIZE=65536@' $(BUILD_DIR)/build/.config
-	@sed -i -E 's@CONFIG_BLK_DEV_RAM_COUNT=.*@CONFIG_BLK_DEV_RAM_COUNT=1@' $(BUILD_DIR)/build/.config
-	@sed -i -E 's@CONFIG_CMDLINE=.*@CONFIG_CMDLINE="console=ttyAMA0,115200n8r"@' $(BUILD_DIR)/build/.config
+	@sed -i -E 's@.* CONFIG_EFI_GENERIC_STUB_INITRD_CMDLINE_LOADER .*@CONFIG_EFI_GENERIC_STUB_INITRD_CMDLINE_LOADER=y@' $(BUILD_DIR)/build/.config
 endif
 
 .PHONY: menuconfig
