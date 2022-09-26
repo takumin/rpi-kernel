@@ -15,7 +15,7 @@ APT_MIRROR_URL ?= http://proxy.apt.internal:3142/ubuntu-ports
 ARCHITECTURES  ?= arm64
 VARIANT        ?= apt
 SUITE          ?= jammy
-COMPONENTS     ?= $(SUITE),$(SUITE)-updates,$(SUITE)-backports,$(SUITE)-security
+COMPONENTS     ?= main,restricted,universe,multiverse
 
 # packages
 INCLUDE_PACKAGES ?=
@@ -55,10 +55,11 @@ INCLUDE_PACKAGES += patch
 INCLUDE_PACKAGES += vim-tiny
 
 .PHONY: default
-default: initrd
+default: initrd.gz initrd.xz
 
 .PHONY: rootfs
 rootfs:
+	@mkdir -p $(BUILD_DIR)
 	@sudo mmdebstrap \
 		--variant='$(VARIANT)' \
 		--components='$(COMPONENTS)' \
@@ -83,10 +84,14 @@ rootfs:
 		--hook-directory='/usr/share/mmdebstrap/hooks/merged-usr' \
 		'$(SUITE)' '$(BUILD_DIR)/rootfs' '$(APT_MIRROR_URL)'
 
-.PHONY: initrd
-initrd:
-	@cd $(BUILD_DIR)/rootfs && find . -print0 | cpio -0 -o -R root:root -H newc | gzip -2 -n > $(BUILD_DIR)/rootfs.cpio.gz
+.PHONY: initrd.gz
+initrd.gz: rootfs
+	@cd $(BUILD_DIR)/rootfs && sudo find . -print0 | sudo cpio -0 -o -R root:root -H newc | gzip -2 -n > $(BUILD_DIR)/rootfs.cpio.gz
 	@advdef -z4 $(BUILD_DIR)/rootfs.cpio.gz
+
+.PHONY: initrd.xz
+initrd.xz: rootfs
+	@cd $(BUILD_DIR)/rootfs && sudo find . -print0 | sudo cpio -0 -o -R root:root -H newc | pixz > $(BUILD_DIR)/rootfs.cpio.xz
 
 .PHONY: clean
 clean:
