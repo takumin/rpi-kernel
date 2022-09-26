@@ -18,7 +18,7 @@ CROSS_COMPILE   ?= aarch64-none-linux-gnu-
 BUSYBOX_VERSION ?= 1.35.0
 
 .PHONY: default
-default: initrd
+default: initrd.gz initrd.xz
 
 .PHONY: download
 download:
@@ -86,10 +86,14 @@ install: build
 		CXX="ccache $(CROSS_COMPILE)g++" \
 		install
 
-.PHONY: initrd
-initrd: install
+.PHONY: initrd.gz
+initrd.gz: install
 	@cd $(BUILD_DIR)/install && find . -print0 | cpio -0 -o -R root:root -H newc | gzip -2 -n > $(BUILD_DIR)/rootfs.cpio.gz
 	@advdef -z4 $(BUILD_DIR)/rootfs.cpio.gz
+
+.PHONY: initrd.xz
+initrd.xz: install
+	@cd $(BUILD_DIR)/install && find . -print0 | cpio -0 -o -R root:root -H newc | pixz > $(BUILD_DIR)/rootfs.cpio.xz
 
 .PHONY: clean
 clean:
