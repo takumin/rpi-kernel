@@ -18,19 +18,27 @@ for mod in /sys/bus/pci/devices/*/modalias; do modprobe "$(cat "$mod")" 2>/dev/n
 
 ifconfig eth0 up
 ip addr add 192.168.100.90/24 dev eth0
+echo "nameserver 192.168.100.100" > /etc/resolv.conf
 
 echo "root:x:0:" > /etc/group
 echo "root:x:0:0:root:/root:/bin/sh" > /etc/passwd
 echo "root:root" | chpasswd 2> /dev/null
 
-addgroup -g 1000 pi
-adduser -u 1000 -G pi -s /bin/sh -h /home/pi -D pi
-echo "pi:pi" | chpasswd 2> /dev/null
+USERNAME="takumi"
 
-mkdir -m 0700 /home/pi/.ssh
-echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB/qb8XxUTnQQgEYF3W2ZaVu8VWqzoYNxpKA/FOFDhoG admin" > /home/pi/.ssh/authorized_keys
-chown -R 1000:1000 /home/pi
+addgroup -g 1000 "${USERNAME}"
+adduser -u 1000 -G "${USERNAME}" -s /bin/sh -h "/home/${USERNAME}" -D "${USERNAME}"
+echo "${USERNAME}:${USERNAME}" | chpasswd 2> /dev/null
+
+mkdir -m 0700 "/home/${USERNAME}/.ssh"
+echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB/qb8XxUTnQQgEYF3W2ZaVu8VWqzoYNxpKA/FOFDhoG admin" > "/home/${USERNAME}/.ssh/authorized_keys"
+chown -R 1000:1000 "/home/${USERNAME}"
 
 chmod u+s /bin/su
 
-exec /sbin/dropbear -R -F -E
+wget http://boot.internal/rpi/boot/rootfs.tar.xz
+mkdir -p /mnt
+tar -xf /tmp/rootfs.tar.xz -C /mnt -p --numeric-owner --acls --xattrs
+
+# exec /sbin/dropbear -R -F -E
+exec /sbin/switch_root /mnt /sbin/init
