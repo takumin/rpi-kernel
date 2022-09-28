@@ -66,7 +66,7 @@ INCLUDE_PACKAGES += patch
 INCLUDE_PACKAGES += vim-tiny
 
 .PHONY: default
-default: initrd.gz initrd.xz
+default: rootfs.tar.gz rootfs.tar.xz
 
 .PHONY: rootfs
 rootfs:
@@ -97,13 +97,13 @@ rootfs:
 		--hook-directory='/usr/share/mmdebstrap/hooks/merged-usr' \
 		'$(SUITE)' '$(BUILD_DIR)/rootfs' '$(APT_MIRROR_URL)'
 
-.PHONY: initrd.gz
-initrd.gz: rootfs
-	@cd $(BUILD_DIR)/rootfs && sudo find . -print0 | sudo cpio -0 -o -R root:root -H newc | pigz -n > $(BUILD_DIR)/rootfs.cpio.gz
+.PHONY: rootfs.tar.gz
+rootfs.tar.gz: rootfs
+	@sudo tar -I pigz -p --acls --xattrs --one-file-system -cf $(BUILD_DIR)/rootfs.tar.gz -C $(BUILD_DIR)/rootfs .
 
-.PHONY: initrd.xz
-initrd.xz: rootfs
-	@cd $(BUILD_DIR)/rootfs && sudo find . -print0 | sudo cpio -0 -o -R root:root -H newc | pixz > $(BUILD_DIR)/rootfs.cpio.xz
+.PHONY: rootfs.tar.xz
+rootfs.tar.xz: rootfs
+	@sudo tar -I pixz -p --acls --xattrs --one-file-system -cf $(BUILD_DIR)/rootfs.tar.xz -C $(BUILD_DIR)/rootfs .
 
 .PHONY: clean
 clean:
