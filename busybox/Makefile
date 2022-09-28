@@ -104,11 +104,11 @@ script: install
 
 .PHONY: initrd.gz
 initrd.gz: script
-	@cd $(INSTALL_DIR) && find . -print0 | cpio -0 -o -R root:root -H newc | pigz -n > $(BASE_DIR)/rootfs.cpio.gz
+	@cd $(INSTALL_DIR) && find . -print0 | cpio -0 -o -R root:root -H newc | pigz -n > $(BASE_DIR)/initramfs.cpio.gz
 
 .PHONY: initrd.xz
 initrd.xz: script
-	@cd $(INSTALL_DIR) && find . -print0 | cpio -0 -o -R root:root -H newc | pixz > $(BASE_DIR)/rootfs.cpio.xz
+	@cd $(INSTALL_DIR) && find . -print0 | cpio -0 -o -R root:root -H newc | pixz > $(BASE_DIR)/initramfs.cpio.xz
 
 .PHONY: clean
 clean:
