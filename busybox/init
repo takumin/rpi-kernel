@@ -1,0 +1,36 @@
+#!/bin/sh
+
+mkdir -p /dev/pts
+mkdir -p /etc/dropbear
+mkdir -p /home
+mkdir -p /proc
+mkdir -p /root
+mkdir -p /sys
+mkdir -p /var/log
+
+mount -t devpts devpts /dev/pts
+mount -t proc   proc   /proc
+mount -t sysfs  sysfs  /sys
+
+mdev -s
+
+for mod in /sys/bus/pci/devices/*/modalias; do modprobe "$(cat "$mod")" 2>/dev/null; done
+
+ifconfig eth0 up
+ip addr add 192.168.100.90/24 dev eth0
+
+echo "root:x:0:" > /etc/group
+echo "root:x:0:0:root:/root:/bin/sh" > /etc/passwd
+echo "root:root" | chpasswd 2> /dev/null
+
+addgroup -g 1000 pi
+adduser -u 1000 -G pi -s /bin/sh -h /home/pi -D pi
+echo "pi:pi" | chpasswd 2> /dev/null
+
+mkdir -m 0700 /home/pi/.ssh
+echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB/qb8XxUTnQQgEYF3W2ZaVu8VWqzoYNxpKA/FOFDhoG admin" > /home/pi/.ssh/authorized_keys
+chown -R 1000:1000 /home/pi
+
+chmod u+s /bin/su
+
+exec /sbin/dropbear -R -F -E

@@ -14,7 +14,7 @@ export CCACHE_DIR = $(HOME)/.cache/rpi-kernel
 DOWNLOAD_DIR  ?= ../.dl/linux
 SOURCE_DIR    ?= ../.src/linux
 BUILD_DIR     ?= /tmp/rpi-kernel/linux
-CROSS_COMPILE ?= aarch64-none-linux-gnu-
+CROSS_COMPILE ?= aarch64-linux-gnu-
 LINUX_BRANCH  ?= rpi-5.15.y
 
 .PHONY: default

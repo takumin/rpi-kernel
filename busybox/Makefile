@@ -13,8 +13,12 @@ export CCACHE_DIR = $(HOME)/.cache/rpi-kernel
 
 DOWNLOAD_DIR    ?= ../.dl/busybox
 SOURCE_DIR      ?= ../.src/busybox
-BUILD_DIR       ?= /tmp/rpi-kernel/busybox
-CROSS_COMPILE   ?= aarch64-none-linux-gnu-
+BASE_DIR        ?= /tmp/rpi-kernel/busybox
+BUILD_DIR       ?= $(BASE_DIR)/build
+INSTALL_DIR     ?= $(BASE_DIR)/install
+MODULES_DIR     ?= /tmp/rpi-kernel/linux/modules
+DROPBEAR_DIR    ?= /tmp/rpi-kernel/dropbear/install
+CROSS_COMPILE   ?= aarch64-linux-gnu-
 BUSYBOX_VERSION ?= 1.35.0
 
 .PHONY: default
@@ -36,19 +40,19 @@ endif
 
 .PHONY: defconfig
 defconfig: extract
-ifeq ($(wildcard $(BUILD_DIR)/build/.config),)
-	@mkdir -p $(BUILD_DIR)/build
+ifeq ($(wildcard $(BUILD_DIR)/.config),)
+	@mkdir -p $(BUILD_DIR)
 	@$(MAKE) \
 		-C $(SOURCE_DIR) \
 		-j $(shell nproc) \
-		O=$(BUILD_DIR)/build \
+		O=$(BUILD_DIR) \
 		ARCH=arm64 \
 		CROSS_COMPILE=$(CROSS_COMPILE) \
 		CC="ccache $(CROSS_COMPILE)gcc" \
 		CXX="ccache $(CROSS_COMPILE)g++" \
 		defconfig
-	@sed -i -E 's/.* CONFIG_STATIC .*/CONFIG_STATIC=y/' $(BUILD_DIR)/build/.config
-	@sed -i -E 's@CONFIG_PREFIX.*@CONFIG_PREFIX="$(BUILD_DIR)/install"@' $(BUILD_DIR)/build/.config
+	@sed -i -E 's/.* CONFIG_STATIC .*/CONFIG_STATIC=y/' $(BUILD_DIR)/.config
+	@sed -i -E 's@CONFIG_PREFIX.*@CONFIG_PREFIX="$(INSTALL_DIR)"@' $(BUILD_DIR)/.config
 endif
 
 .PHONY: menuconfig
@@ -56,7 +60,7 @@ menuconfig: defconfig
 	@$(MAKE) \
 		-C $(SOURCE_DIR) \
 		-j $(shell nproc) \
-		O=$(BUILD_DIR)/build \
+		O=$(BUILD_DIR) \
 		ARCH=arm64 \
 		CROSS_COMPILE=$(CROSS_COMPILE) \
 		CC="ccache $(CROSS_COMPILE)gcc" \
@@ -65,35 +69,47 @@ menuconfig: defconfig
 
 .PHONY: build
 build: defconfig
+ifeq ($(wildcard $(BUILD_DIR)/busybox),)
 	@$(MAKE) \
 		-C $(SOURCE_DIR) \
 		-j $(shell nproc) \
-		O=$(BUILD_DIR)/build \
+		O=$(BUILD_DIR) \
 		ARCH=arm64 \
 		CROSS_COMPILE=$(CROSS_COMPILE) \
 		CC="ccache $(CROSS_COMPILE)gcc" \
 		CXX="ccache $(CROSS_COMPILE)g++"
+endif
 
 .PHONY: install
 install: build
+ifeq ($(wildcard $(INSTALL_DIR)/bin/busybox),)
 	@$(MAKE) \
 		-C $(SOURCE_DIR) \
 		-j $(shell nproc) \
-		O=$(BUILD_DIR)/build \
+		O=$(BUILD_DIR) \
 		ARCH=arm64 \
 		CROSS_COMPILE=$(CROSS_COMPILE) \
 		CC="ccache $(CROSS_COMPILE)gcc" \
 		CXX="ccache $(CROSS_COMPILE)g++" \
 		install
+endif
+
+.PHONY: script
+script: install
+	@rsync -a $(MODULES_DIR)/lib/ $(INSTALL_DIR)/lib/
+	@rsync -a $(DROPBEAR_DIR)/bin/ $(INSTALL_DIR)/bin/
+	@rsync -a $(DROPBEAR_DIR)/sbin/ $(INSTALL_DIR)/sbin/
+	@cp init $(INSTALL_DIR)/init
+	@chmod +x $(INSTALL_DIR)/init
 
 .PHONY: initrd.gz
-initrd.gz: install
-	@cd $(BUILD_DIR)/install && find . -print0 | cpio -0 -o -R root:root -H newc | pigz -n > $(BUILD_DIR)/rootfs.cpio.gz
+initrd.gz: script
+	@cd $(INSTALL_DIR) && find . -print0 | cpio -0 -o -R root:root -H newc | pigz -n > $(BASE_DIR)/rootfs.cpio.gz
 
 .PHONY: initrd.xz
-initrd.xz: install
-	@cd $(BUILD_DIR)/install && find . -print0 | cpio -0 -o -R root:root -H newc | pixz > $(BUILD_DIR)/rootfs.cpio.xz
+initrd.xz: script
+	@cd $(INSTALL_DIR) && find . -print0 | cpio -0 -o -R root:root -H newc | pixz > $(BASE_DIR)/rootfs.cpio.xz
 
 .PHONY: clean
 clean:
-	@rm -fr $(BUILD_DIR)
+	@rm -fr $(BASE_DIR)
