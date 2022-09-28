@@ -11,6 +11,7 @@ unexport UNZIP
 export LC_ALL = C
 
 BUILD_DIR      ?= /tmp/rpi-kernel/ubuntu
+MODULES_DIR    ?= /tmp/rpi-kernel/linux/modules
 APT_MIRROR_URL ?= http://proxy.apt.internal:3142/ubuntu-ports
 ARCHITECTURES  ?= arm64
 VARIANT        ?= apt
@@ -107,6 +108,7 @@ rootfs:
 		--customize-hook='echo "[Service]" > "$$1/etc/systemd/system/getty@ttyAMA0.service.d/autologin.conf"' \
 		--customize-hook='echo "ExecStart=" >> "$$1/etc/systemd/system/getty@ttyAMA0.service.d/autologin.conf"' \
 		--customize-hook='echo "ExecStart=-/sbin/agetty --autologin root --noclear %I 115200,38400,9600 vt102" >> "$$1/etc/systemd/system/getty@ttyAMA0.service.d/autologin.conf"' \
+		--customize-hook='cp -r $(MODULES_DIR)/lib/modules "$$1/lib/modules"' \
 		--hook-directory='/usr/share/mmdebstrap/hooks/merged-usr' \
 		'$(SUITE)' '$(BUILD_DIR)/rootfs' '$(APT_MIRROR_URL)'
 
