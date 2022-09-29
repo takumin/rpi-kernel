@@ -1,44 +1,127 @@
 #!/bin/sh
 
-mkdir -p /dev/pts
+USERNAME="takumi"
+SSH_PUB_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB/qb8XxUTnQQgEYF3W2ZaVu8VWqzoYNxpKA/FOFDhoG takumi"
+
+########################################################################################################################
+# init
+########################################################################################################################
+
+mkdir -p /dev
 mkdir -p /etc/dropbear
 mkdir -p /home
 mkdir -p /proc
 mkdir -p /root
+mkdir -p /run
 mkdir -p /sys
 mkdir -p /var/log
 
-mount -t devpts devpts /dev/pts
-mount -t proc   proc   /proc
-mount -t sysfs  sysfs  /sys
+mount -t devtmpfs devtmpfs /dev
+mkdir -p /dev/pts
+mount -t devpts   devpts   /dev/pts
+mount -t proc     proc     /proc
+mount -t sysfs    sysfs    /sys
+
+########################################################################################################################
+# cmdline
+########################################################################################################################
+
+# shellcheck disable=SC2013
+for x in $(cat /proc/cmdline); do
+  case $x in
+    root=*)
+      ROOT=${x#root=}
+      ;;
+  esac
+done
+
+########################################################################################################################
+# mdev
+########################################################################################################################
 
 mdev -s
 
+########################################################################################################################
+# modules
+########################################################################################################################
+
 for mod in /sys/bus/pci/devices/*/modalias; do modprobe "$(cat "$mod")" 2>/dev/null; done
 
-ifconfig eth0 up
-ip addr add 192.168.100.90/24 dev eth0
-echo "nameserver 192.168.100.100" > /etc/resolv.conf
+########################################################################################################################
+# root
+########################################################################################################################
 
 echo "root:x:0:" > /etc/group
 echo "root:x:0:0:root:/root:/bin/sh" > /etc/passwd
 echo "root:root" | chpasswd 2> /dev/null
 
-USERNAME="takumi"
+########################################################################################################################
+# user
+########################################################################################################################
 
 addgroup -g 1000 "${USERNAME}"
 adduser -u 1000 -G "${USERNAME}" -s /bin/sh -h "/home/${USERNAME}" -D "${USERNAME}"
 echo "${USERNAME}:${USERNAME}" | chpasswd 2> /dev/null
 
 mkdir -m 0700 "/home/${USERNAME}/.ssh"
-echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB/qb8XxUTnQQgEYF3W2ZaVu8VWqzoYNxpKA/FOFDhoG admin" > "/home/${USERNAME}/.ssh/authorized_keys"
+echo "${SSH_PUB_KEY}" > "/home/${USERNAME}/.ssh/authorized_keys"
 chown -R 1000:1000 "/home/${USERNAME}"
 
 chmod u+s /bin/su
 
-wget http://boot.internal/rpi/boot/rootfs.tar.xz
-mkdir -p /mnt
-tar -xf /tmp/rootfs.tar.xz -C /mnt -p --numeric-owner --acls --xattrs
+########################################################################################################################
+# network
+########################################################################################################################
 
-# exec /sbin/dropbear -R -F -E
-exec /sbin/switch_root /mnt /sbin/init
+ifconfig eth0 up
+ip addr add 192.168.100.90/24 dev eth0
+echo "nameserver 192.168.100.100" > /etc/resolv.conf
+
+########################################################################################################################
+# dropbear
+########################################################################################################################
+
+dropbear -R -E -P /run/dropbear.pid -w -j -k
+
+########################################################################################################################
+# rootfs
+########################################################################################################################
+
+mkdir -p /live
+mount -t tmpfs tmpfs /live
+
+mkdir -p /live/rootfs /live/modules /live/upper /live/work
+wget -P /live http://boot.internal/rpi/boot/rootfs.squashfs
+mount -t squashfs /live/rootfs.squashfs /live/rootfs
+
+mkdir -p /live/modules/usr/lib
+cp -r /lib/modules /live/modules/usr/lib/modules
+
+mkdir -p /newroot
+mount -t overlay -o lowerdir=/live/rootfs:/live/modules,upperdir=/live/upper,workdir=/live/work overlay /newroot
+
+mkdir -p /newroot/run
+mount -t tmpfs -o mode=755,nodev,nosuid,strictatime tmpfs /newroot/run
+
+mkdir -p /newroot/run/live
+mount --move /live /newroot/run/live
+
+########################################################################################################################
+# exec
+########################################################################################################################
+
+if echo "${ROOT:-}" | grep -Eqs '^/dev/ram'; then
+  exec /bin/sh
+else
+  kill -KILL "$(cat /run/dropbear.pid)"
+
+  ip addr del 192.168.100.90/24 dev eth0
+  ifconfig eth0 down
+
+  umount /sys
+  umount /proc
+  umount /dev/pts
+  umount /dev
+
+  exec /sbin/switch_root /newroot /sbin/init
+fi

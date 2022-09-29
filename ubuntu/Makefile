@@ -11,7 +11,6 @@ unexport UNZIP
 export LC_ALL = C
 
 BUILD_DIR      ?= /tmp/rpi-kernel/ubuntu
-MODULES_DIR    ?= /tmp/rpi-kernel/linux/modules
 APT_MIRROR_URL ?= http://proxy.apt.internal:3142/ubuntu-ports
 ARCHITECTURES  ?= arm64
 VARIANT        ?= apt
@@ -28,8 +27,6 @@ INCLUDE_PACKAGES += kmod
 # firmware
 INCLUDE_PACKAGES += linux-firmware
 INCLUDE_PACKAGES += linux-firmware-raspi
-# archive
-INCLUDE_PACKAGES += xz-utils
 # web
 INCLUDE_PACKAGES += ca-certificates
 INCLUDE_PACKAGES += curl
@@ -66,10 +63,11 @@ INCLUDE_PACKAGES += patch
 INCLUDE_PACKAGES += vim-tiny
 
 .PHONY: default
-default: rootfs.tar.gz rootfs.tar.xz
+default: rootfs.tar.gz rootfs.tar.xz rootfs.squashfs
 
 .PHONY: rootfs
 rootfs:
+ifeq ($(wildcard $(BUILD_DIR)/.config),)
 	@mkdir -p $(BUILD_DIR)
 	@sudo mmdebstrap \
 		--variant='$(VARIANT)' \
@@ -93,9 +91,9 @@ rootfs:
 		--customize-hook='rm -f "$$1/etc/machine-id"' \
 		--customize-hook='touch "$$1/var/lib/dbus/machine-id"' \
 		--customize-hook='touch "$$1/etc/machine-id"' \
-		--customize-hook='cp -r $(MODULES_DIR)/lib/modules "$$1/lib/modules"' \
 		--hook-directory='/usr/share/mmdebstrap/hooks/merged-usr' \
 		'$(SUITE)' '$(BUILD_DIR)/rootfs' '$(APT_MIRROR_URL)'
+endif
 
 .PHONY: rootfs.tar.gz
 rootfs.tar.gz: rootfs
@@ -104,6 +102,10 @@ rootfs.tar.gz: rootfs
 .PHONY: rootfs.tar.xz
 rootfs.tar.xz: rootfs
 	@sudo tar -I pixz -p --acls --xattrs --one-file-system -cf $(BUILD_DIR)/rootfs.tar.xz -C $(BUILD_DIR)/rootfs .
+
+.PHONY: rootfs.squashfs
+rootfs.squashfs: rootfs
+	@sudo mksquashfs $(BUILD_DIR)/rootfs $(BUILD_DIR)/rootfs.squashfs -comp xz
 
 .PHONY: clean
 clean:
