@@ -1,7 +1,8 @@
 #!/bin/sh
 
-USERNAME="takumi"
-SSH_PUB_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB/qb8XxUTnQQgEYF3W2ZaVu8VWqzoYNxpKA/FOFDhoG takumi"
+USER="takumi"
+GECOS="Takumi Takahashi"
+PUBKEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB/qb8XxUTnQQgEYF3W2ZaVu8VWqzoYNxpKA/FOFDhoG takumi"
 
 ########################################################################################################################
 # init
@@ -36,18 +37,6 @@ for x in $(cat /proc/cmdline); do
 done
 
 ########################################################################################################################
-# mdev
-########################################################################################################################
-
-mdev -s
-
-########################################################################################################################
-# modules
-########################################################################################################################
-
-for mod in /sys/bus/pci/devices/*/modalias; do modprobe "$(cat "$mod")" 2>/dev/null; done
-
-########################################################################################################################
 # root
 ########################################################################################################################
 
@@ -59,13 +48,13 @@ echo "root:root" | chpasswd 2> /dev/null
 # user
 ########################################################################################################################
 
-addgroup -g 1000 "${USERNAME}"
-adduser -u 1000 -G "${USERNAME}" -s /bin/sh -h "/home/${USERNAME}" -D "${USERNAME}"
-echo "${USERNAME}:${USERNAME}" | chpasswd 2> /dev/null
+addgroup -g 1000 "${USER}"
+adduser -u 1000 -G "${USER}" -s /bin/sh -h "/home/${USER}" -D "${USER}"
+echo "${USER}:${USER}" | chpasswd 2> /dev/null
 
-mkdir -m 0700 "/home/${USERNAME}/.ssh"
-echo "${SSH_PUB_KEY}" > "/home/${USERNAME}/.ssh/authorized_keys"
-chown -R 1000:1000 "/home/${USERNAME}"
+mkdir -m 0700 "/home/${USER}/.ssh"
+echo "${PUBKEY}" > "/home/${USER}/.ssh/authorized_keys"
+chown -R 1000:1000 "/home/${USER}"
 
 chmod u+s /bin/su
 
@@ -105,6 +94,54 @@ mount -t tmpfs -o mode=755,nodev,nosuid,strictatime tmpfs /newroot/run
 
 mkdir -p /newroot/run/live
 mount --move /live /newroot/run/live
+
+########################################################################################################################
+# config
+########################################################################################################################
+
+mkdir -p /newroot/run/systemd/network
+
+cat > /newroot/run/systemd/network/00-default.network <<- __EOF__
+[Match]
+Name=*
+!Name=veth*
+Type=ether
+
+[Network]
+LinkLocalAddressing=yes
+IPv6LinkLocalAddressGenerationMode=stable-privacy
+DHCP=yes
+LLDP=yes
+
+[DHCPv4]
+ClientIdentifier=mac
+__EOF__
+
+mkdir -p /newroot/run/systemd/system
+
+cat > /newroot/run/systemd/system/admin-user.service <<- __EOF__
+[Unit]
+Description=Admin User for ${USER}
+
+[Service]
+Type=oneshot
+ExecStart=/sbin/adduser --disabled-password --shell /bin/bash --home "/home/${USER}" --gecos "${GECOS}" "${USER}"
+ExecStart=/sbin/adduser "${USER}" adm
+ExecStart=/sbin/adduser "${USER}" sudo
+ExecStart=/sbin/adduser "${USER}" staff
+ExecStart=/sbin/adduser "${USER}" users
+ExecStart=/bin/sh -c '/bin/echo "${USER}:${USER}" | /sbin/chpasswd'
+ExecStart=/bin/mkdir -m 0700 "/home/${USER}/.ssh"
+ExecStart=/bin/sh -c '/bin/echo "${PUBKEY}" > "/home/${USER}/.ssh/authorized_keys"'
+ExecStart=/bin/chown -R "${USER}:${USER}" "/home/${USER}"
+ExecStart=/bin/sh -c '/bin/echo "%%sudo ALL=(ALL:ALL) NOPASSWD: ALL" > "/etc/sudoers.d/no_passwd"'
+
+[Install]
+WantedBy=multi-user.target
+__EOF__
+
+mkdir -p /live/upper/etc/systemd/system
+ln -s /run/systemd/system/admin-user.service /live/upper/etc/systemd/system/admin-user.service
 
 ########################################################################################################################
 # exec
