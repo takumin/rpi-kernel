@@ -21,11 +21,12 @@ COMPONENTS     ?= main,restricted,universe,multiverse
 INCLUDE_PACKAGES ?=
 # base
 INCLUDE_PACKAGES += linux-base
+INCLUDE_PACKAGES += lsb-release
 INCLUDE_PACKAGES += util-linux
 # kernel
 INCLUDE_PACKAGES += kmod
 # firmware
-INCLUDE_PACKAGES += linux-firmware
+# INCLUDE_PACKAGES += linux-firmware
 INCLUDE_PACKAGES += linux-firmware-raspi
 # web
 INCLUDE_PACKAGES += ca-certificates
@@ -37,6 +38,7 @@ INCLUDE_PACKAGES += policykit-1
 INCLUDE_PACKAGES += openssh-server
 # systemd
 INCLUDE_PACKAGES += init
+INCLUDE_PACKAGES += udev
 INCLUDE_PACKAGES += dbus
 INCLUDE_PACKAGES += dbus-user-session
 INCLUDE_PACKAGES += systemd
