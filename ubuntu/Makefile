@@ -46,6 +46,7 @@ INCLUDE_PACKAGES += systemd-sysv
 INCLUDE_PACKAGES += systemd-timesyncd
 INCLUDE_PACKAGES += libpam-systemd
 INCLUDE_PACKAGES += libnss-systemd
+INCLUDE_PACKAGES += libnss-resolve
 # timezone
 INCLUDE_PACKAGES += tzdata
 # networking
